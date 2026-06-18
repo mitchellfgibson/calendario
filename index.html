@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calendario · A Voyage Through the Year</title>
+<meta name="description" content="A deeply interactive calendar that sails a claymation ship through an ocean of days. The weather adapts to your sleep and stress — life as a sailboat, after Scott Barry Kaufman." />
+<style>
+  /* ============================================================
+     CALENDARIO
+     A calendar you sail rather than read.
+     Aardman / Wallace & Gromit claymation warmth, an ocean of
+     days, and weather driven by your sleep + stress — life as a
+     sailboat (Scott Barry Kaufman, "Transcend").
+     ============================================================ */
+
+  :root {
+    /* Sky + sea palettes are interpolated in JS from these stops.
+       Kept as CSS vars so the whole scene retints live. */
+    --sky-top:   #bfe3f2;
+    --sky-bot:   #f4e7c9;
+    --sea-top:   #3f86a8;
+    --sea-bot:   #1d4f6b;
+    --sun:       #ffe9a8;
+    --hull:      #c8503b;   /* warm plasticine red */
+    --hull-dark: #9c3a2a;
+    --deck:      #e7b96b;
+    --sail:      #f3ece0;
+    --sail-shade:#dccbb0;
+    --ink:       #2a2118;
+    --paper:     #fbf3df;
+    --paper-edge:#e6d4ad;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    color: var(--ink);
+    overflow: hidden;
+    background: #1d4f6b;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- The scene ---------- */
+  #scene {
+    position: fixed; inset: 0;
+    transition: background 1.6s ease;
+    background:
+      linear-gradient(to bottom,
+        var(--sky-top) 0%,
+        var(--sky-bot) 42%,
+        var(--sea-top) 42%,
+        var(--sea-bot) 100%);
+  }
+
+  /* Sun / moon disc */
+  #sun {
+    position: absolute; top: 9%; right: 14%;
+    width: 120px; height: 120px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 38%, #fff7df, var(--sun) 60%, rgba(255,233,168,0) 72%);
+    filter: blur(.4px);
+    transition: background 1.6s ease, top 1.6s ease, opacity 1.6s ease;
+    pointer-events: none;
+  }
+
+  /* Layered seas (parallax wave bands) */
+  .sea {
+    position: absolute; left: -10%; width: 120%;
+    background-repeat: repeat-x;
+    pointer-events: none;
+    transition: opacity 1.6s ease;
+  }
+  .sea-back  { top: 44%; height: 56%; opacity: .45; }
+  .sea-mid   { top: 52%; height: 48%; opacity: .6;  }
+  .sea-front { top: 62%; height: 38%; }
+
+  /* Wave bands drawn as repeating SVG, animated horizontally. */
+  .wave-band {
+    position: absolute; left: 0; right: 0; top: 0;
+    height: 60px;
+    background-repeat: repeat-x;
+    background-size: 240px 60px;
+  }
+  @keyframes drift-a { from { background-position-x: 0;    } to { background-position-x: 240px; } }
+  @keyframes drift-b { from { background-position-x: 0;    } to { background-position-x: -240px;} }
+  @keyframes drift-c { from { background-position-x: 240px;} to { background-position-x: 0;     } }
+
+  /* Clouds */
+  .cloud {
+    position: absolute;
+    fill: #fff;
+    opacity: .9;
+    transition: opacity 1.6s ease, fill 1.6s ease;
+    will-change: transform;
+  }
+
+  /* Rain (only shown in rough weather) */
+  #rain { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 1.2s ease; }
+  #rain line { stroke: #cfe6f2; stroke-width: 2; }
+
+  /* ---------- The ship ---------- */
+  #ship-wrap {
+    position: absolute;
+    left: 50%; top: 58%;
+    width: 280px; height: 260px;
+    transform: translate(-50%, -50%);
+    transform-origin: 50% 80%;
+    pointer-events: none;
+    filter: drop-shadow(0 16px 14px rgba(0,0,0,.28));
+  }
+  /* Bobbing + rocking is intensified in rough weather via JS var --sway. */
+  @keyframes bob {
+    0%,100% { transform: translateY(calc(var(--sway,6px) * -1)) rotate(calc(var(--roll,2deg) * -1)); }
+    50%     { transform: translateY(var(--sway,6px)) rotate(var(--roll,2deg)); }
+  }
+  #ship { width: 100%; height: 100%; animation: bob var(--bobdur,5s) ease-in-out infinite; transform-origin: 50% 78%; }
+
+  /* ---------- HUD / paper cards (the claymation log book) ---------- */
+  .card {
+    position: absolute;
+    background: var(--paper);
+    border: 2px solid var(--paper-edge);
+    border-radius: 14px;
+    box-shadow: 0 10px 0 rgba(0,0,0,.06), 0 14px 30px rgba(0,0,0,.25);
+    padding: 14px 16px;
+  }
+  .card h2 { margin: 0 0 .4rem; font-size: .82rem; letter-spacing: .12em; text-transform: uppercase; color: #8a6b3a; }
+
+  #title {
+    top: 22px; left: 24px; padding: 12px 18px;
+    transform: rotate(-1.2deg);
+  }
+  #title h1 { margin: 0; font-size: 1.5rem; letter-spacing: .02em; }
+  #title p  { margin: 2px 0 0; font-size: .78rem; color: #7a6a52; }
+
+  /* The day ribbon — the calendar itself, as a strip of buoys */
+  #ribbon-card {
+    left: 50%; bottom: 18px; transform: translateX(-50%);
+    width: min(940px, 94vw);
+    padding: 12px 10px 14px;
+  }
+  #ribbon-head { display:flex; align-items:center; justify-content:space-between; padding: 0 8px 6px; }
+  #ribbon-head h2 { margin: 0; }
+  #ribbon-head .nav { display:flex; gap:6px; }
+  .btn {
+    font: inherit; font-size: .8rem; cursor: pointer;
+    background: #f6e7c4; border: 2px solid var(--paper-edge);
+    border-radius: 9px; padding: 4px 10px; color: var(--ink);
+    box-shadow: 0 3px 0 rgba(0,0,0,.08);
+  }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.08); }
+
+  #ribbon {
+    display: flex; gap: 6px; overflow-x: auto; padding: 6px 6px 10px;
+    scroll-behavior: smooth; scrollbar-width: thin;
+  }
+  .day {
+    flex: 0 0 auto;
+    width: 58px; min-height: 78px;
+    border-radius: 10px;
+    background: linear-gradient(#fff8e8, #f2e1bd);
+    border: 2px solid var(--paper-edge);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 6px 2px 4px; cursor: pointer; position: relative;
+    transition: transform .12s ease, box-shadow .12s ease;
+    user-select: none;
+  }
+  .day:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,.18); }
+  .day .dow  { font-size: .58rem; letter-spacing: .08em; color: #9c8048; text-transform: uppercase; }
+  .day .num  { font-size: 1.25rem; font-weight: 700; line-height: 1.1; }
+  .day .mon  { font-size: .54rem; color:#b08a4a; text-transform: uppercase; letter-spacing:.06em; }
+  .day.today { background: linear-gradient(#fff2cf,#ffe09a); border-color:#e7b54e; box-shadow: 0 0 0 3px rgba(231,181,78,.4); }
+  .day.today::before { content:"⚓"; position:absolute; top:-12px; font-size:.9rem; }
+  .day.selected { outline: 3px solid #c8503b; outline-offset: 1px; }
+  .day .dots { display:flex; gap:3px; margin-top:auto; min-height: 8px; }
+  .day .dot  { width:6px; height:6px; border-radius:50%; }
+  .dot.growth   { background:#3f9d6b; }   /* sail / growth */
+  .dot.security { background:#c8503b; }   /* hull / security */
+  .day .weather { position:absolute; top:4px; right:5px; font-size:.7rem; opacity:.8; }
+
+  /* Mood controls — the two levers that steer the weather */
+  #helm {
+    right: 24px; top: 22px; width: 256px;
+  }
+  #helm .row { margin: 10px 0; }
+  #helm label { display:flex; justify-content:space-between; font-size:.72rem; color:#7a6a52; margin-bottom:3px; }
+  input[type=range] { width: 100%; accent-color: #c8503b; }
+  #weather-word { margin-top:8px; font-size:.82rem; font-weight:700; color:#3a5a6b; }
+  #helm .hint { font-size:.66rem; color:#9c8a6f; margin-top:4px; line-height:1.35; }
+
+  /* Sailboat life panel (SBK) */
+  #compass {
+    right: 24px; top: 232px; width: 256px;
+  }
+  .gauge { margin:8px 0; }
+  .gauge .lab { display:flex; justify-content:space-between; font-size:.7rem; color:#7a6a52; }
+  .gauge .bar { height:9px; border-radius:6px; background:#eaddc2; overflow:hidden; margin-top:3px; }
+  .gauge .fill { height:100%; width:0%; transition: width .5s ease; border-radius:6px; }
+  .fill.sail { background:linear-gradient(90deg,#7fd0a0,#3f9d6b); }
+  .fill.hull { background:linear-gradient(90deg,#e8836f,#c8503b); }
+  #compass .quote { font-size:.66rem; font-style:italic; color:#8a7a60; margin-top:8px; line-height:1.4; }
+
+  /* Day editor modal */
+  #overlay {
+    position: fixed; inset: 0; background: rgba(20,40,55,.45);
+    display: none; align-items: center; justify-content: center; z-index: 30;
+    backdrop-filter: blur(2px);
+  }
+  #editor { width: min(420px, 92vw); position: static; transform: rotate(-.6deg); }
+  #editor h2 { font-size:.9rem; }
+  #editor .date { font-size:1.1rem; font-weight:700; margin-bottom:8px; }
+  #editor textarea {
+    width:100%; min-height:70px; resize:vertical; font:inherit; font-size:.85rem;
+    border:2px solid var(--paper-edge); border-radius:10px; padding:8px; background:#fffaf0;
+  }
+  #editor .kind { display:flex; gap:8px; margin:10px 0; }
+  #editor .kind button {
+    flex:1; font:inherit; font-size:.78rem; cursor:pointer; padding:8px; border-radius:10px;
+    border:2px solid var(--paper-edge); background:#f6e7c4;
+  }
+  #editor .kind button.on.growth   { background:#cdebd9; border-color:#3f9d6b; }
+  #editor .kind button.on.security { background:#f3d4cc; border-color:#c8503b; }
+  #editor .events { margin:8px 0; max-height:120px; overflow:auto; }
+  #editor .ev { display:flex; align-items:center; gap:8px; font-size:.82rem; padding:4px 0; border-bottom:1px dashed var(--paper-edge); }
+  #editor .ev .tag { width:9px; height:9px; border-radius:50%; flex:0 0 auto; }
+  #editor .ev button { margin-left:auto; border:none; background:none; cursor:pointer; color:#b04a36; font-size:1rem; }
+  #editor .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+
+  .credit { position:fixed; left:10px; bottom:4px; font-size:.6rem; color:rgba(255,255,255,.55); z-index:5; }
+
+  @media (max-width: 760px) {
+    #helm, #compass { display:none; }
+    #title h1 { font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+  <div id="scene">
+    <div id="sun"></div>
+
+    <!-- parallax seas; wave bands injected by JS -->
+    <div class="sea sea-back"></div>
+    <div class="sea sea-mid"></div>
+    <div class="sea sea-front"></div>
+
+    <svg id="rain" preserveAspectRatio="none"></svg>
+
+    <!-- clouds -->
+    <svg class="cloud" style="top:14%; left:12%; width:170px" viewBox="0 0 100 50"><path d="M20 40 Q5 40 8 28 Q4 16 18 18 Q22 6 38 12 Q48 2 60 12 Q78 8 80 24 Q96 24 90 38 Q88 44 78 42 Z"/></svg>
+    <svg class="cloud" style="top:8%; left:46%; width:130px; opacity:.7" viewBox="0 0 100 50"><path d="M20 40 Q5 40 8 28 Q4 16 18 18 Q22 6 38 12 Q48 2 60 12 Q78 8 80 24 Q96 24 90 38 Q88 44 78 42 Z"/></svg>
+
+    <!-- the ship -->
+    <div id="ship-wrap">
+      <svg id="ship" viewBox="0 0 280 260">
+        <!-- mast -->
+        <rect x="135" y="40" width="8" height="150" rx="3" fill="#7a5a34"/>
+        <!-- mainsail: scaleY driven by growth -->
+        <g id="sail-group" style="transform-origin: 139px 60px;">
+          <path id="mainsail" d="M143 56 C 210 78, 210 150, 143 178 Z" fill="var(--sail)" stroke="var(--sail-shade)" stroke-width="2"/>
+          <path d="M143 56 C 205 80, 205 148, 143 178" fill="none" stroke="var(--sail-shade)" stroke-width="1.5" opacity=".5"/>
+        </g>
+        <!-- foresail / jib -->
+        <path id="jib" d="M135 64 C 92 96, 92 150, 135 172 Z" fill="#efe6d6" stroke="var(--sail-shade)" stroke-width="2"/>
+        <!-- pennant -->
+        <path id="pennant" d="M139 40 L 168 33 L 139 46 Z" fill="var(--hull)"/>
+
+        <!-- hull (claymation, wonky on purpose) -->
+        <g id="hull-group">
+          <path d="M52 182 Q140 176 228 182 Q220 224 140 230 Q60 224 52 182 Z" fill="var(--hull)" stroke="var(--hull-dark)" stroke-width="3"/>
+          <path d="M52 182 Q140 192 228 182" fill="none" stroke="var(--hull-dark)" stroke-width="3" opacity=".7"/>
+          <!-- deck stripe -->
+          <path d="M60 186 Q140 196 220 186" fill="none" stroke="var(--deck)" stroke-width="6" stroke-linecap="round"/>
+          <!-- portholes -->
+          <circle cx="100" cy="200" r="6" fill="#fbe9b0" stroke="var(--hull-dark)" stroke-width="2"/>
+          <circle cx="140" cy="204" r="6" fill="#fbe9b0" stroke="var(--hull-dark)" stroke-width="2"/>
+          <circle cx="180" cy="200" r="6" fill="#fbe9b0" stroke="var(--hull-dark)" stroke-width="2"/>
+        </g>
+        <!-- little waves hugging the hull -->
+        <path d="M40 214 Q70 206 100 214 T 160 214 T 220 214 T 250 214" fill="none" stroke="#dff0f6" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+      </svg>
+    </div>
+
+    <!-- HUD cards -->
+    <div id="title" class="card">
+      <h1>⛵ Calendario</h1>
+      <p>A voyage through the year — not a grid to finish.</p>
+    </div>
+
+    <div id="helm" class="card">
+      <h2>The Helm · today's weather</h2>
+      <div class="row">
+        <label><span>Slept poorly</span><span>Slept well</span></label>
+        <input id="sleep" type="range" min="0" max="100" value="60" />
+      </div>
+      <div class="row">
+        <label><span>Calm</span><span>Stormy / stressed</span></label>
+        <input id="stress" type="range" min="0" max="100" value="35" />
+      </div>
+      <div id="weather-word">Fair winds</div>
+      <div class="hint">Your sleep &amp; stress steer the sea. Good rest &amp; low stress → calm, golden water. Rough nights → grey swells and headwind.</div>
+    </div>
+
+    <div id="compass" class="card">
+      <h2>The Sailboat · this voyage</h2>
+      <div class="gauge">
+        <div class="lab"><span>⛵ Sail · growth</span><span id="sail-pct">0%</span></div>
+        <div class="bar"><div id="sail-fill" class="fill sail"></div></div>
+      </div>
+      <div class="gauge">
+        <div class="lab"><span>⚓ Hull · security</span><span id="hull-pct">0%</span></div>
+        <div class="bar"><div id="hull-fill" class="fill hull"></div></div>
+      </div>
+      <div class="quote">"You don't climb a mountain of needs. You sail an endless sea — keeping the boat safe, opening the sail to grow." — after Scott Barry Kaufman</div>
+    </div>
+
+    <!-- the calendar ribbon -->
+    <div id="ribbon-card" class="card">
+      <div id="ribbon-head">
+        <h2 id="ribbon-month">—</h2>
+        <div class="nav">
+          <button class="btn" id="prev">‹ aft</button>
+          <button class="btn" id="today-btn">⚓ today</button>
+          <button class="btn" id="next">fore ›</button>
+        </div>
+      </div>
+      <div id="ribbon"></div>
+    </div>
+  </div>
+
+  <!-- day editor -->
+  <div id="overlay">
+    <div id="editor" class="card">
+      <h2>Log the day</h2>
+      <div class="date" id="ed-date">—</div>
+      <div class="events" id="ed-events"></div>
+      <textarea id="ed-text" placeholder="What happened? A small moment counts…"></textarea>
+      <div class="kind">
+        <button id="ed-growth" class="growth" data-kind="growth">⛵ Growth — explored, loved, created</button>
+        <button id="ed-security" class="security" data-kind="security">⚓ Security — safe, rested, connected</button>
+      </div>
+      <div class="actions">
+        <button class="btn" id="ed-cancel">close</button>
+        <button class="btn" id="ed-add" style="background:#cdebd9;border-color:#3f9d6b">＋ add to log</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="credit">Calendario · claymation seas &amp; the psychology of becoming</div>
+
+<script>
+/* =================================================================
+   CALENDARIO — engine
+   ================================================================= */
+
+const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MON = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MON_S = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+const store = {
+  key: "calendario.v1",
+  load() { try { return JSON.parse(localStorage.getItem(this.key)) || {}; } catch { return {}; } },
+  save(d) { localStorage.setItem(this.key, JSON.stringify(d)); },
+};
+let DATA = store.load();           // { "2026-06-18": { events:[{text,kind}], mood:{sleep,stress} } }
+
+const todayKey = keyOf(new Date());
+let cursor = new Date();           // which month the ribbon centres on
+let selected = todayKey;
+
+function keyOf(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function dateOf(k){ const [y,m,da]=k.split("-").map(Number); return new Date(y,m-1,da); }
+function dayRec(k){ return DATA[k] || (DATA[k] = {events:[]}); }
+
+/* ---------- colour helpers for live scene retint ---------- */
+function lerp(a,b,t){ return a+(b-a)*t; }
+function hex(c){ return c.map(v=>Math.round(v).toString(16).padStart(2,"0")).join(""); }
+function mix(c1,c2,t){
+  const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+  const a=p(c1), b=p(c2);
+  return "#"+hex(a.map((v,i)=>lerp(v,b[i],t)));
+}
+
+/* Weather palettes: calm (good) -> rough (bad) */
+const PAL = {
+  calm: { skyTop:"#bfe3f2", skyBot:"#ffe9c2", seaTop:"#46b0c4", seaBot:"#1f6a86", sun:"#ffe9a8" },
+  rough:{ skyTop:"#8693a0", skyBot:"#b7b2a6", seaTop:"#3d5e6e", seaBot:"#23323c", sun:"#cfd6da" },
+};
+
+/* condition 0 = perfect calm, 1 = full storm */
+function condition(){
+  const sleep  = +document.getElementById("sleep").value;   // 0 poor .. 100 great
+  const stress = +document.getElementById("stress").value;  // 0 calm .. 100 stormy
+  // poor sleep and high stress both push toward storm
+  const c = ( (100 - sleep) * 0.5 + stress * 0.5 ) / 100;
+  return Math.max(0, Math.min(1, c));
+}
+
+function applyWeather(){
+  const c = condition();
+  const root = document.documentElement.style;
+  root.setProperty("--sky-top", mix(PAL.calm.skyTop, PAL.rough.skyTop, c));
+  root.setProperty("--sky-bot", mix(PAL.calm.skyBot, PAL.rough.skyBot, c));
+  root.setProperty("--sea-top", mix(PAL.calm.seaTop, PAL.rough.seaTop, c));
+  root.setProperty("--sea-bot", mix(PAL.calm.seaBot, PAL.rough.seaBot, c));
+  root.setProperty("--sun",     mix(PAL.calm.sun,    PAL.rough.sun,    c));
+
+  // ship motion: more sway/roll, faster bob in rough seas
+  document.getElementById("ship").style.setProperty("--sway",  (4 + c*16).toFixed(0)+"px");
+  document.getElementById("ship").style.setProperty("--roll",  (1.5 + c*7).toFixed(1)+"deg");
+  document.getElementById("ship").style.setProperty("--bobdur",(5.5 - c*3).toFixed(1)+"s");
+
+  // sun fades / clouds darken / rain in storms
+  document.getElementById("sun").style.opacity = (1 - c*0.7).toFixed(2);
+  document.querySelectorAll(".cloud").forEach(cl=>{
+    cl.style.fill = mix("#ffffff", "#7d8893", c);
+    cl.style.opacity = (0.85 + c*0.15).toFixed(2);
+  });
+  document.getElementById("rain").style.opacity = c > 0.62 ? ((c-0.62)/0.38).toFixed(2) : 0;
+
+  // word
+  const words = ["Glassy calm","Fair winds","A light chop","Building swell","Heavy seas","Storm ahead"];
+  document.getElementById("weather-word").textContent = words[Math.min(words.length-1, Math.round(c*(words.length-1)))];
+
+  // persist today's mood
+  const rec = dayRec(todayKey);
+  rec.mood = { sleep:+document.getElementById("sleep").value, stress:+document.getElementById("stress").value };
+  store.save(DATA);
+}
+
+/* ---------- build the wave bands & rain once ---------- */
+function waveSVG(crest, color){
+  // a 240x60 repeating wave tile
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='60' viewBox='0 0 240 60'>
+    <path d='M0 30 Q30 ${30-crest} 60 30 T120 30 T180 30 T240 30 V60 H0 Z' fill='${color}'/></svg>`;
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+}
+function buildSeas(){
+  const seas = [
+    {el:".sea-back",  crest:8,  color:"%2357a7be", anim:"drift-a", dur:"26s"},
+    {el:".sea-mid",   crest:12, color:"%23348aa6", anim:"drift-b", dur:"18s"},
+    {el:".sea-front", crest:18, color:"%231f6a86", anim:"drift-c", dur:"11s"},
+  ];
+  seas.forEach(s=>{
+    const host = document.querySelector(s.el);
+    const band = document.createElement("div");
+    band.className = "wave-band";
+    band.style.backgroundImage = waveSVG(s.crest, decodeURIComponent(s.color));
+    band.style.animation = `${s.anim} ${s.dur} linear infinite`;
+    host.appendChild(band);
+  });
+}
+function buildRain(){
+  const r = document.getElementById("rain");
+  r.setAttribute("viewBox","0 0 100 100");
+  let lines="";
+  for(let i=0;i<70;i++){
+    const x=Math.random()*100, y=Math.random()*100, len=2+Math.random()*3;
+    lines += `<line x1='${x}' y1='${y}' x2='${x-2}' y2='${y+len}'><animate attributeName='y1' from='${y}' to='${y+30}' dur='${(0.4+Math.random()*0.5).toFixed(2)}s' repeatCount='indefinite'/><animate attributeName='y2' from='${y+len}' to='${y+len+30}' dur='${(0.4+Math.random()*0.5).toFixed(2)}s' repeatCount='indefinite'/></line>`;
+  }
+  r.innerHTML = lines;
+}
+
+/* ---------- the calendar ribbon ---------- */
+function renderRibbon(){
+  const ribbon = document.getElementById("ribbon");
+  ribbon.innerHTML = "";
+  const y = cursor.getFullYear(), m = cursor.getMonth();
+  document.getElementById("ribbon-month").textContent = `${MON[m]} ${y} — the leg ahead`;
+  const days = new Date(y, m+1, 0).getDate();
+  let todayCell = null;
+  for(let d=1; d<=days; d++){
+    const date = new Date(y,m,d);
+    const k = keyOf(date);
+    const rec = DATA[k];
+    const cell = document.createElement("div");
+    cell.className = "day" + (k===todayKey?" today":"") + (k===selected?" selected":"");
+    let dots = "";
+    if(rec && rec.events){
+      const g = rec.events.some(e=>e.kind==="growth");
+      const s = rec.events.some(e=>e.kind==="security");
+      if(g) dots += `<span class="dot growth"></span>`;
+      if(s) dots += `<span class="dot security"></span>`;
+    }
+    const wx = (rec && rec.mood) ? weatherIcon(rec.mood) : "";
+    cell.innerHTML =
+      `<span class="weather">${wx}</span>`+
+      `<span class="dow">${DOW[date.getDay()]}</span>`+
+      `<span class="num">${d}</span>`+
+      `<span class="mon">${MON_S[m]}</span>`+
+      `<span class="dots">${dots}</span>`;
+    cell.addEventListener("click", ()=>{ selected=k; renderRibbon(); openEditor(k); });
+    ribbon.appendChild(cell);
+    if(k===todayKey) todayCell = cell;
+  }
+  // centre the ship roughly over today / selected
+  const target = todayCell || ribbon.children[0];
+  if(target) target.scrollIntoView({inline:"center", block:"nearest"});
+}
+
+function weatherIcon(mood){
+  const c = ((100-mood.sleep)*0.5 + mood.stress*0.5)/100;
+  if(c < 0.2) return "☀️";
+  if(c < 0.45) return "🌤️";
+  if(c < 0.7) return "⛅";
+  return "🌧️";
+}
+
+/* ---------- the sailboat (SBK) panel ---------- */
+function renderCompass(){
+  // count growth vs security events across all logged days
+  let g=0, s=0, total=0;
+  Object.values(DATA).forEach(rec=>{
+    (rec.events||[]).forEach(e=>{ total++; if(e.kind==="growth")g++; else if(e.kind==="security")s++; });
+  });
+  // scale: each panel approaches full as you log more of that kind (soft cap ~12)
+  const sailPct = Math.min(100, Math.round((g/12)*100));
+  const hullPct = Math.min(100, Math.round((s/12)*100));
+  document.getElementById("sail-fill").style.width = sailPct+"%";
+  document.getElementById("hull-fill").style.width = hullPct+"%";
+  document.getElementById("sail-pct").textContent = sailPct+"%";
+  document.getElementById("hull-pct").textContent = hullPct+"%";
+
+  // the sail visibly grows with growth; hull deepens with security
+  const sailScale = 0.55 + (g/12)*0.55;
+  document.getElementById("sail-group").style.transform = `scaleX(${Math.min(1.1,sailScale)})`;
+  const hull = document.getElementById("hull-group");
+  hull.style.transform = `translateY(${-Math.min(6,(s/12)*8)}px)`;
+}
+
+/* ---------- day editor ---------- */
+let edKind = "growth";
+function openEditor(k){
+  const d = dateOf(k);
+  document.getElementById("ed-date").textContent = `${DOW[d.getDay()]} · ${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}`;
+  document.getElementById("editor").dataset.key = k;
+  document.getElementById("ed-text").value = "";
+  setKind("growth");
+  renderEvents(k);
+  document.getElementById("overlay").style.display = "flex";
+}
+function setKind(kind){
+  edKind = kind;
+  document.getElementById("ed-growth").classList.toggle("on", kind==="growth");
+  document.getElementById("ed-security").classList.toggle("on", kind==="security");
+}
+function renderEvents(k){
+  const box = document.getElementById("ed-events");
+  const rec = DATA[k];
+  if(!rec || !rec.events.length){ box.innerHTML = `<div style="font-size:.78rem;color:#9c8a6f">No log yet — the sea is open.</div>`; return; }
+  box.innerHTML = rec.events.map((e,i)=>
+    `<div class="ev"><span class="tag ${e.kind==='growth'?'':''}" style="background:${e.kind==='growth'?'#3f9d6b':'#c8503b'}"></span>
+     <span>${escapeHtml(e.text)}</span><button data-i="${i}">✕</button></div>`).join("");
+  box.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+    rec.events.splice(+b.dataset.i,1); store.save(DATA); renderEvents(k); renderRibbon(); renderCompass();
+  }));
+}
+function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function addEvent(){
+  const k = document.getElementById("editor").dataset.key;
+  const text = document.getElementById("ed-text").value.trim();
+  if(!text) return;
+  dayRec(k).events.push({ text, kind: edKind });
+  store.save(DATA);
+  document.getElementById("ed-text").value = "";
+  renderEvents(k); renderRibbon(); renderCompass();
+}
+
+/* ---------- wiring ---------- */
+function init(){
+  buildSeas(); buildRain();
+
+  // restore today's mood if logged
+  const tm = DATA[todayKey] && DATA[todayKey].mood;
+  if(tm){ document.getElementById("sleep").value = tm.sleep; document.getElementById("stress").value = tm.stress; }
+
+  document.getElementById("sleep").addEventListener("input", applyWeather);
+  document.getElementById("stress").addEventListener("input", ()=>{ applyWeather(); renderRibbon(); });
+  document.getElementById("sleep").addEventListener("change", renderRibbon);
+
+  document.getElementById("prev").addEventListener("click", ()=>{ cursor=new Date(cursor.getFullYear(),cursor.getMonth()-1,1); renderRibbon(); });
+  document.getElementById("next").addEventListener("click", ()=>{ cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1); renderRibbon(); });
+  document.getElementById("today-btn").addEventListener("click", ()=>{ cursor=new Date(); selected=todayKey; renderRibbon(); });
+
+  document.getElementById("ed-growth").addEventListener("click", ()=>setKind("growth"));
+  document.getElementById("ed-security").addEventListener("click", ()=>setKind("security"));
+  document.getElementById("ed-add").addEventListener("click", addEvent);
+  document.getElementById("ed-cancel").addEventListener("click", ()=>document.getElementById("overlay").style.display="none");
+  document.getElementById("overlay").addEventListener("click", e=>{ if(e.target.id==="overlay") e.currentTarget.style.display="none"; });
+  document.getElementById("ed-text").addEventListener("keydown", e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)) addEvent(); });
+  document.addEventListener("keydown", e=>{ if(e.key==="Escape") document.getElementById("overlay").style.display="none"; });
+
+  applyWeather();
+  renderRibbon();
+  renderCompass();
+}
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
