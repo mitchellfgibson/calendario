@@ -56,17 +56,12 @@
   .boil { animation: boil .28s steps(1,end) infinite; }
   .boil.slow { animation-duration: .42s; }
 
-  /* wobbly hand-drawn border for cards/buttons */
-  @keyframes wobble-border {
-    0%   { border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; }
-    50%  { border-radius: 15px 225px 15px 255px / 225px 15px 255px 15px; }
-    100% { border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; }
-  }
+  /* calm, steady panel — no wobble, so it doesn't compete with the
+     boiling ship & sea. Clean rounded corners on warm cel-paper. */
   .inked {
-    border: 2.5px solid var(--ink);
+    border: 2px solid var(--ink);
     background: var(--paper);
-    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-    animation: wobble-border 1.4s steps(2,end) infinite;
+    border-radius: 10px;
   }
 
   /* ---------- The scene ---------- */
@@ -128,7 +123,7 @@
   .card { position:absolute; padding:14px 16px; box-shadow:3px 4px 0 var(--ink); }
   .card h2 { margin:0 0 .4rem; font-size:.82rem; letter-spacing:.06em; text-transform:uppercase; color:var(--brick); }
 
-  #title { top:22px; left:24px; padding:12px 18px; transform:rotate(-1.5deg); }
+  #title { top:22px; left:24px; padding:12px 18px; }
   #title h1 { margin:0; font-size:1.7rem; }
   #title p  { margin:3px 0 0; font-size:.82rem; color:#6a5d44; }
 
@@ -148,22 +143,22 @@
   #ribbon-head .nav { display:flex; gap:8px; }
   .btn {
     font:inherit; font-size:.82rem; cursor:pointer; color:var(--ink);
-    background:var(--paper); border:2.5px solid var(--ink); padding:4px 12px;
+    background:var(--paper); border:2px solid var(--ink); padding:4px 12px;
     box-shadow:2px 3px 0 var(--ink);
-    border-radius:120px 8px 110px 8px / 8px 110px 8px 120px;
+    border-radius:8px;
   }
   .btn:active { transform:translate(2px,3px); box-shadow:0 0 0 var(--ink); }
 
   #ribbon { display:flex; gap:8px; overflow-x:auto; padding:8px 4px 10px; scroll-behavior:smooth; scrollbar-width:thin; }
   .day {
     flex:0 0 auto; width:60px; min-height:80px;
-    background:var(--paper); border:2.5px solid var(--ink);
+    background:var(--paper); border:2px solid var(--ink);
     display:flex; flex-direction:column; align-items:center; padding:6px 2px 4px;
     cursor:pointer; position:relative; user-select:none;
-    box-shadow:2px 3px 0 var(--ink);
+    box-shadow:2px 3px 0 var(--ink); border-radius:8px;
     transition:transform .1s ease;
   }
-  .day:hover { transform:translateY(-3px) rotate(-1deg); }
+  .day:hover { transform:translateY(-3px); }
   .day .dow { font-size:.58rem; letter-spacing:.06em; color:#a07c2e; text-transform:uppercase; }
   .day .num { font-size:1.3rem; font-weight:700; line-height:1.1; }
   .day .mon { font-size:.54rem; color:#b07a2e; text-transform:uppercase; }
@@ -196,12 +191,12 @@
 
   /* editor modal */
   #overlay { position:fixed; inset:0; background:rgba(44,38,32,.4); display:none; align-items:center; justify-content:center; z-index:30; }
-  #editor { width:min(420px,92vw); position:static; transform:rotate(-.8deg); }
+  #editor { width:min(420px,92vw); position:static; }
   #editor h2 { font-size:.92rem; }
   #editor .date { font-size:1.15rem; font-weight:700; margin-bottom:8px; }
-  #editor textarea { width:100%; min-height:70px; resize:vertical; font:inherit; font-size:.85rem; border:2.5px solid var(--ink); padding:8px; background:#fffaf0; border-radius:120px 8px 110px 8px / 8px 110px 8px 120px; }
+  #editor textarea { width:100%; min-height:70px; resize:vertical; font:inherit; font-size:.85rem; border:2px solid var(--ink); padding:8px; background:#fffaf0; border-radius:8px; }
   #editor .kind { display:flex; gap:8px; margin:10px 0; }
-  #editor .kind button { flex:1; font:inherit; font-size:.76rem; cursor:pointer; padding:8px; border:2.5px solid var(--ink); background:var(--paper); box-shadow:2px 2px 0 var(--ink); }
+  #editor .kind button { flex:1; font:inherit; font-size:.76rem; cursor:pointer; padding:8px; border:2px solid var(--ink); background:var(--paper); box-shadow:2px 2px 0 var(--ink); border-radius:8px; }
   #editor .kind button.on.growth   { background:#cdebd0; }
   #editor .kind button.on.security { background:#f3d2cc; }
   #editor .events { margin:8px 0; max-height:120px; overflow:auto; }
