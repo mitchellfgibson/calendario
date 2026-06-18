@@ -2,9 +2,11 @@
 
 A deeply interactive calendar you **sail** rather than read.
 
-A claymation ship (Aardman / _Wallace & Gromit_ plasticine warmth) crosses an
-ocean of days. The weather of that ocean — calm golden water vs. grey storm
-swells — adapts to **your sleep and stress**. It's a calendar built on Scott
+A wobbly, hand-inked sailboat — drawn in the _Peanuts_ / Charlie Brown spirit,
+with every outline **"boiling"** (jittering a few times a second, the way Bill
+Melendez animated the TV specials) — crosses an ocean of days. The weather of
+that ocean — calm sunny water vs. grey storm swells — adapts to **your sleep and
+stress**. It's a calendar built on Scott
 Barry Kaufman's _Transcend_ metaphor: life isn't a mountain of needs you climb,
 it's a **sailboat** you keep adjusting on an open sea. The **hull** is your
 security (safety, connection, rest); the **sail** is your growth (exploration,
@@ -50,11 +52,13 @@ Everything is saved to your browser's `localStorage` — private, no server.
 
 ## Why these graphics & this psychology
 
-- **Aardman / Wallace & Gromit** look: hand-built plasticine charm — wonky hull,
-  warm reds and creams, soft drop shadows, a log-book paper UI.
+- **Peanuts / Charlie Brown** look: flat vintage color on warm cel-paper,
+  hand-lettered headings, zigzag-stripe motifs, and the signature **boiling
+  line** — outlines that jitter between micro-offset versions a few times a
+  second, exactly how the specials were animated.
 - **Scott Barry Kaufman, _Transcend_ (2020)**: the sailboat model of
-  self-actualization — security below the waterline, growth in the sail.
+  self-actualization — security as the hull, growth as the sail.
 
 ---
 
-_Claymation seas & the psychology of becoming._
+_Boiling-line seas & the psychology of becoming._
